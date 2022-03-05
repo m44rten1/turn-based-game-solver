@@ -1,4 +1,4 @@
-import IPlayer from "./../generic/IPlayer";
+import IPlayer from "../generic/IPlayer";
 import ISkyjoPlayerState from "./ISkyjoPlayerState"
 
 
