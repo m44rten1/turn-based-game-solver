@@ -12,11 +12,15 @@ export type actionType =
 | "SWITCH_DRAWN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD"
 | "SWITCH_DRAWN_DECK_CARD_WITH_CLOSED_HAND_CARD"
 
-class SkyjoGame extends Game<ISkyjoState> {
+export default class SkyjoGame extends Game<ISkyjoState> {
 
   // TODO: game settings object
   handSize: number = 12;
   initialOpenCards: number = 2;
+  maxGlobalScore: number = 100;
+
+  // Global game state
+  isRoundStarted = false;
 
   constructor(players: IPlayer<ISkyjoState>[]) {
 
@@ -28,18 +32,41 @@ class SkyjoGame extends Game<ISkyjoState> {
       currentPlayerIndex: 0
     }
 
-    super(skyjoState, players);
-    this.initState();
+    super(skyjoState, players);    
   }
 
-  initState(): void {
+  public beforeNewTurn(): void {
+    if (!this.isRoundStarted) {
+      this.initState();
+    }
+  }
+
+  public isGameFinished(): boolean {
+    return this.players.some(player => this.getPlayersState(player).globalScore >= this.maxGlobalScore);
+  }
+
+  public getAllowedActions(): IAction[] {
+    return []; 
+    
+    // TODO: check state for current player...
+    // Is deze functie nodig? Je kan altijd alle acties meegeven, de actie die de speler kiest hangt volledig van z'n state af?
+    // Je kan bij het executen van de actie checken of de actie valid is en zo niet een nieuwe actie vragen (kan wel inf loop veroorzaken)
+  }
+
+  public determineNextPlayer(): IPlayer<ISkyjoState> {
+    const player = this.players[this.state.currentPlayerIndex];
+    this.state.currentPlayerIndex = (this.state.currentPlayerIndex + 1) % this.players.length;
+    return player;
+  }
+
+  private initState(): void {
     this.initDeck();
     this.dealCards();
     this.initOpenCard();
     this.initPlayersOpenCards();
   }
 
-  initDeck(): void {
+  private initDeck(): void {
     this.addCardsToDeck([-1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 10);
     this.addCardsToDeck([0], 15);
     this.addCardsToDeck([-2], 5);
@@ -47,7 +74,7 @@ class SkyjoGame extends Game<ISkyjoState> {
     this.shuffle();
   }
 
-  allActions(): IAction[] {
+  private allActions(): IAction[] {
     return [
       {
         type: "SWITCH_OPEN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD",
@@ -121,35 +148,39 @@ class SkyjoGame extends Game<ISkyjoState> {
     ];
   }
 
-  addCardsToDeck(cards: number[], repeat: number = 1): void {
+  private addCardsToDeck(cards: number[], repeat: number = 1): void {
     Array(repeat).fill(null).forEach(() => {
       this.state.deck.push(...cards);
     })
   }
 
-  shuffle(): void {
+  private shuffle(): void {
     this.state.deck = this.state.deck
       .map(card => ({ card, sort: Math.random() }))
       .sort((a, b) => a.sort - b.sort)
       .map(({ card }) => card);
   }
 
-  dealCards(): void {
+  private dealCards(): void {
     this.players.forEach(player => {
       const playerState = this.state.playerStates.get(player);
 
+      if (!playerState) throw new Error("Can't deal cards to this player")
+      playerState.closedCards = [];
+
       for (let i = 0; i < this.handSize; i++)
-        playerState?.closedCards.push(this.drawCardFromDeck());
+        playerState.closedCards.push(this.drawCardFromDeck());
     })
   }
 
-  initOpenCard(): void {
+  private initOpenCard(): void {
     this.state.discardPile.push(this.drawCardFromDeck());
   }
 
-  initPlayersOpenCards(): void {
+  private initPlayersOpenCards(): void {
     this.players.forEach(player => {
       const playerState = this.getPlayersState(player);
+      playerState.openCards = [];
       for (let i = 0; i < this.initialOpenCards; i++) {
         const card = playerState.closedCards.pop();
         card && playerState.openCards.push(card);
@@ -157,60 +188,41 @@ class SkyjoGame extends Game<ISkyjoState> {
     });
   }
 
-  drawCardFromDeck(): number {
+  private drawCardFromDeck(): number {
     const card = this.state.deck.pop();
     if (card === undefined) throw new Error('Illegal action: No cards left in the deck');
     return card;
   }
 
-  drawCardFromDiscardPile(): number {
+  private drawCardFromDiscardPile(): number {
     const card = this.state.discardPile.pop();
     if (card === undefined) throw new Error('Illegal action: No cards available on the discard pile');
     return card;
   }
 
-  drawCardFromClosedPlayerCards(playerState: ISkyjoPlayerState): number {
+  private drawCardFromClosedPlayerCards(playerState: ISkyjoPlayerState): number {
     const card = playerState.closedCards.pop();
     if (card === undefined) throw new Error("Illegal action: no cards available in closed cards");
     return card;
   }
 
-  drawCardFromOpenPlayerCards(playerState: ISkyjoPlayerState): number {
+  private drawCardFromOpenPlayerCards(playerState: ISkyjoPlayerState): number {
     const card = playerState.openCards.pop();
     if (card === undefined) throw new Error("Illegal action: no cards available in open cards");
     return card;
   }
 
-  drawHighestOpenHandCard(playerState: ISkyjoPlayerState): number {
+  private drawHighestOpenHandCard(playerState: ISkyjoPlayerState): number {
     const highestCard = Math.max(...playerState.openCards);
     const indexOfHighestCard = playerState.openCards.indexOf(highestCard);
     return playerState.openCards.splice(indexOfHighestCard, 1)[0];
   }
 
-  determineNextPlayer(): IPlayer<ISkyjoState> {
-    const player = this.players[this.state.currentPlayerIndex];
-    this.state.currentPlayerIndex = (this.state.currentPlayerIndex + 1) % this.players.length;
-    return player;
-  }
-
-  getCurrentPlayer(): IPlayer<ISkyjoState> {
+  private getCurrentPlayer(): IPlayer<ISkyjoState> {
     return this.players[this.state.currentPlayerIndex];
   }
 
-  getPlayersState(player?: IPlayer<ISkyjoState>): ISkyjoPlayerState {
+  private getPlayersState(player?: IPlayer<ISkyjoState>): ISkyjoPlayerState {
     return this.state.playerStates.get(player || this.getCurrentPlayer())!;
-  }
-
-  isGameFinished(): boolean {
-    return false; //TODO: check score?? OR check all open cards of every player
-    // Check score - deze ftie moet enkel de eindconditie van het spel checken
-  };
-
-  getAllowedActions(): IAction[] {
-    return []; 
-    
-    // TODO: check state for current player...
-    // Is deze functie nodig? Je kan altijd alle acties meegeven, de actie die de speler kiest hangt volledig van z'n state af?
-    // Je kan bij het executen van de actie checken of de actie valid is en zo niet een nieuwe actie vragen (kan wel inf loop veroorzaken)
   }
 }

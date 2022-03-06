@@ -12,20 +12,23 @@ export default abstract class Game<IState> {
     this.players = players;
   }
 
-  start() {
+  public async start() {
     while (!this.isGameFinished()) {
       const player = this.determineNextPlayer();
-      this.executeTurn(player);
+      this.beforeNewTurn();
+      await this.executeTurn(player);
     }
   }
 
-  executeTurn(player: IPlayer<IState>) {
-    const action = player.strategy(this.state, this.getAllowedActions());
+  private async executeTurn(player: IPlayer<IState>) {
+    const action = await player.strategy(this.state, this.getAllowedActions());
     action.updateState();
     if (!action.endsTurn) {
       this.executeTurn(player);
     }
   }
+
+  abstract beforeNewTurn(): void;
 
   abstract determineNextPlayer(): IPlayer<IState>;
 
