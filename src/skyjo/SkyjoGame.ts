@@ -32,13 +32,17 @@ export default class SkyjoGame extends Game<ISkyjoState> {
       currentPlayerIndex: 0
     }
 
-    super(skyjoState, players);    
+    super(skyjoState, players);
   }
 
-  public beforeNewTurn(): void {
+  public beforeTurn(): void {
     if (!this.isRoundStarted) {
       this.initState();
     }
+  }
+
+  public afterTurn(): void {
+
   }
 
   public isGameFinished(): boolean {

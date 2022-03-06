@@ -15,8 +15,9 @@ export default abstract class Game<IState> {
   public async start() {
     while (!this.isGameFinished()) {
       const player = this.determineNextPlayer();
-      this.beforeNewTurn();
+      this.beforeTurn();
       await this.executeTurn(player);
+      this.afterTurn();
     }
   }
 
@@ -28,7 +29,9 @@ export default abstract class Game<IState> {
     }
   }
 
-  abstract beforeNewTurn(): void;
+  abstract beforeTurn(): void;
+
+  abstract afterTurn(): void;
 
   abstract determineNextPlayer(): IPlayer<IState>;
 

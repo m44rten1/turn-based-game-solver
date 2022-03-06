@@ -1,26 +1,25 @@
 {
-  "name": "skyjo",
+  "name": "turn-based-game-solver",
   "version": "1.0.0",
-  "description": "Skyjo bot trained with genetic algorithm",
+  "description": "Bot trained with genetic algorithm for any turn based game",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/m44rten1/skyjo.git"
+    "url": "git+https://github.com/m44rten1/turn-based-game-solver.git"
   },
   "keywords": [
     "generic-algorithm",
-    "skyjo",
     "game"
   ],
   "author": "Maarten Van Steenkiste & Emiel Vandewiele",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/m44rten1/skyjo/issues"
+    "url": "https://github.com/m44rten1/turn-based-game-solver/issues"
   },
-  "homepage": "https://github.com/m44rten1/skyjo#readme",
+  "homepage": "https://github.com/m44rten1/turn-based-game-solver#readme",
   "dependencies": {
     "@types/body-parser": "^1.19.2",
     "@types/express": "^4.17.13",
