@@ -21,6 +21,7 @@ export default class SkyjoGame extends Game<ISkyjoState> {
 
   // Global game state
   isRoundStarted = false;
+  roundEndedPlayerIndex = -1;
 
   constructor(players: IPlayer<ISkyjoState>[]) {
 
@@ -37,8 +38,8 @@ export default class SkyjoGame extends Game<ISkyjoState> {
 
   public getWinnerIndex(): number {
     const playerGlobalScores = this.state.playerStates.map(playerState => playerState.globalScore);
-    const maxGlobalScore = Math.max(...playerGlobalScores);
-    const indexOfMax = playerGlobalScores.indexOf(maxGlobalScore);
+    const minGlobalScore = Math.min(...playerGlobalScores);
+    const indexOfMax = playerGlobalScores.indexOf(minGlobalScore);
     return this.isGameFinished() ? indexOfMax : -1;
   }
 
@@ -50,9 +51,24 @@ export default class SkyjoGame extends Game<ISkyjoState> {
   }
 
   public afterTurn(): void {
-    if (this.state.playerStates.every(playerState => playerState.closedCards.length === 0)) {
+    const lastMoveMade = this.getPlayersState().closedCards.length === 0;
+
+    if (this.roundEndedPlayerIndex === -1 && lastMoveMade) {
+      this.roundEndedPlayerIndex = this.state.currentPlayerIndex;
+    }
+
+    const nextPlayerIndex = (this.state.currentPlayerIndex + 1) % this.players.length;
+    if (nextPlayerIndex === this.roundEndedPlayerIndex) {
+      this.openAllClosedCards();
       this.roundEnded();
     }
+  }
+
+  private openAllClosedCards() {
+    this.state.playerStates.forEach(playerState => {
+      playerState.openCards.push(...playerState.closedCards);
+      playerState.closedCards = [];
+    });
   }
 
   private roundEnded() {

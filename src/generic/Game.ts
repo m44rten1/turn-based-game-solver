@@ -14,8 +14,8 @@ export default abstract class Game<IState> {
 
   public async start() {
     while (!this.isGameFinished()) {
-      const player = this.determineNextPlayer();
       this.beforeTurn();
+      const player = this.determineNextPlayer();
       await this.executeTurn(player);
       this.afterTurn();
     }
@@ -25,7 +25,7 @@ export default abstract class Game<IState> {
     const action = await player.strategy(this.state, this.getAllowedActions());
     action.updateState();
     if (!action.endsTurn) {
-      this.executeTurn(player);
+      await this.executeTurn(player);
     }
   }
 

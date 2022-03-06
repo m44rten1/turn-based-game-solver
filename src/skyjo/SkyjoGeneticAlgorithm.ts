@@ -5,7 +5,7 @@ import IPlayer from "../generic/IPlayer";
 
 type Chromosome = ActionType[];
 
-const initialPopulationSize = 10;
+const initialPopulationSize = 30;
 
 const randomIntFromInterval = (min: number, max: number) => {
   // min and max included
@@ -62,7 +62,7 @@ const createPopulation = (): Chromosome[] => {
 
 const mutationFunction = (chromosome: Chromosome) => {
   return chromosome.map((gen) => {
-    return Math.random() > 0.9 ? getRandomActionType() : gen;
+    return Math.random() > 0.99 ? getRandomActionType() : gen;
   });
 };
 
@@ -121,7 +121,7 @@ const config = {
   crossoverFunction,
   doesABeatBFunction,
   population: createPopulation(),
-  populationSize: 10, // defaults to 100
+  populationSize: initialPopulationSize, // defaults to 100
 };
 
 const GeneticAlgorithmConstructor = require("geneticalgorithm");
@@ -147,15 +147,23 @@ const playGameAndPrintScore = async (player1: IPlayer<ISkyjoState>, player2: IPl
   console.log(`Player1: ${game.state.playerStates[0].globalScore}`);
   console.log(`Player2: ${game.state.playerStates[1].globalScore}`);
   console.log("");
+  return Promise.resolve(game.getWinnerIndex());
 }
 
 const test = async () => {
-  for(let i = 0; i < 10; i++) {
+
+  const winnerCount = [0, 0];
+  const iterationCount = 100;
+
+  for(let i = 0; i < iterationCount; i++) {
     geneticAlgorithm.evolve();
     const best: Chromosome = geneticAlgorithm.best();
     const player = createPlayer(best);
-    await playGameAndPrintScore(player, randomPlayer, i);
+    const winnerIndex = await playGameAndPrintScore(player, randomPlayer, i);
+    winnerCount[winnerIndex]++;
   }
+
+  console.log("Win rate GA: ", 100 * winnerCount[0] / iterationCount);
 }
 
 test();
