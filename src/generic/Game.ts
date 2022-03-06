@@ -39,4 +39,5 @@ export default abstract class Game<IState> {
 
   abstract getAllowedActions(): IAction[];
 
+  abstract getWinnerIndex(): number;
 }

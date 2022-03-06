@@ -35,6 +35,13 @@ export default class SkyjoGame extends Game<ISkyjoState> {
     super(skyjoState, players);
   }
 
+  public getWinnerIndex(): number {
+    const playerGlobalScores = this.state.playerStates.map(playerState => playerState.globalScore);
+    const maxGlobalScore = Math.max(...playerGlobalScores);
+    const indexOfMax = playerGlobalScores.indexOf(maxGlobalScore);
+    return this.isGameFinished() ? indexOfMax : -1;
+  }
+
   public beforeTurn(): void {
     if (!this.isRoundStarted) {
       this.initState();
@@ -113,6 +120,7 @@ export default class SkyjoGame extends Game<ISkyjoState> {
     this.dealCards();
     this.initOpenCard();
     this.initPlayersOpenCards();
+    this.state.drawnClosedCard = null;
   }
 
   private initDeck(): void {
@@ -156,7 +164,9 @@ export default class SkyjoGame extends Game<ISkyjoState> {
       {
         type: "DISCARD_DRAWN_DECK_CARD_AND_OPEN_CLOSED_HAND_CARD",
         updateState: () => {
-          if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
+          if (!this.state.drawnClosedCard) {
+            throw new Error("Illegal action: No card was drawn");
+          }
           this.state.discardPile.push(this.state.drawnClosedCard);
           this.state.drawnClosedCard = null;
           const playerState = this.getPlayersState();
