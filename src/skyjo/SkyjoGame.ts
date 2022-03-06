@@ -110,8 +110,10 @@ class SkyjoGame extends Game<ISkyjoState> {
         type: "SWITCH_DRAWN_DECK_CARD_WITH_CLOSED_HAND_CARD",
         updateState: () => {
           if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
-
-
+          const playerState = this.getPlayersState();
+          const closedHandCard = playerState.closedCards.pop()!;
+          this.state.discardPile.push(closedHandCard);
+          playerState.openCards.push(this.state.drawnClosedCard);
           this.state.drawnClosedCard = null;
         },
         endsTurn: true
