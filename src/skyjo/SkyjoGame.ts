@@ -83,8 +83,4 @@ class SkyjoGame extends Game<ISkyjoState> {
   getAllowedActions(state: ISkyjoState): IAction<ISkyjoState>[] {
     return []; // TODO: check state for current player...
   }
-
-  performAction(action: IAction<ISkyjoState>): void {
-    throw new Error("Method not implemented.");
-  }
 }
