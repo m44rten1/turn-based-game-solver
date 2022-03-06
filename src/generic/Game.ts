@@ -1,14 +1,14 @@
 import IAction from "./IAction";
 import IPlayer from "./IPlayer";
 
+//TODO: only pass copies of state, never state!!
+
 export default abstract class Game<IState> {
   state: IState;
-  actions: IAction<IState>[];
   players: IPlayer<IState>[];
 
-  constructor(state: IState, actions: IAction<IState>[], players: IPlayer<IState>[]) {
+  constructor(state: IState, players: IPlayer<IState>[]) {
     this.state = state;
-    this.actions = actions;
     this.players = players;
   }
 
@@ -20,8 +20,8 @@ export default abstract class Game<IState> {
   }
 
   executeTurn(player: IPlayer<IState>) {
-    const action = player.strategy(this.state, this.getAllowedActions(this.state));
-    action.updateState(this.state);
+    const action = player.strategy(this.state, this.getAllowedActions());
+    action.updateState();
     if (!action.endsTurn) {
       this.executeTurn(player);
     }
@@ -31,6 +31,6 @@ export default abstract class Game<IState> {
 
   abstract isGameFinished(): boolean;
 
-  abstract getAllowedActions(state: IState): IAction<IState>[];
+  abstract getAllowedActions(): IAction[];
 
 }

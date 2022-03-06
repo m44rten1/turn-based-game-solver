@@ -1,4 +1,5 @@
-export default interface IAction <IState> {
-  updateState: (state: IState) => void;
+export default interface IAction {
+  type: string;
+  updateState: () => void;
   endsTurn: boolean;
 }

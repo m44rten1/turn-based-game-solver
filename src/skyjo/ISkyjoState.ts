@@ -3,7 +3,7 @@ import ISkyjoPlayerState from "./ISkyjoPlayerState"
 
 
 export default interface ISkyjoState {
-  openCard: number | null;
+  discardPile:number[];
   deck: number[];
   drawnClosedCard: number | null;
   playerStates: Map<IPlayer<ISkyjoState>, ISkyjoPlayerState>;

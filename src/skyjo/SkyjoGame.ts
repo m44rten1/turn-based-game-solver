@@ -1,33 +1,42 @@
 import Game from "../generic/Game";
 import IAction from "../generic/IAction";
 import IPlayer from "../generic/IPlayer";
+import ISkyjoPlayerState from "./ISkyjoPlayerState";
 import ISkyjoState from "./ISkyjoState";
+
+export type actionType = 
+| "SWITCH_OPEN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD"
+| "SWITCH_OPEN_DECK_CARD_WITH_CLOSED_HAND_CARD"
+| "DRAW_CLOSED_DECK_CARD"
+| "DISCARD_DRAWN_DECK_CARD_AND_OPEN_CLOSED_HAND_CARD"
+| "SWITCH_DRAWN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD"
+| "SWITCH_DRAWN_DECK_CARD_WITH_CLOSED_HAND_CARD"
 
 class SkyjoGame extends Game<ISkyjoState> {
 
+  // TODO: game settings object
   handSize: number = 12;
+  initialOpenCards: number = 2;
 
   constructor(players: IPlayer<ISkyjoState>[]) {
 
     const skyjoState: ISkyjoState = {
-      openCard: null,
+      discardPile: [],
       deck: [],
       drawnClosedCard: null,
-      playerStates: new Map(players.map(player => { return [player, {openCards: [], closedCards: []}]})),
+      playerStates: new Map(players.map(player => { return [player, {openCards: [], closedCards: [], globalScore: 0}]})),
       currentPlayerIndex: 0
     }
 
-    const actions: IAction<ISkyjoState>[] = []; // TODO: create all possible actions
-
-    super(skyjoState, actions, players);
+    super(skyjoState, players);
     this.initState();
-
   }
 
   initState(): void {
     this.initDeck();
     this.dealCards();
     this.initOpenCard();
+    this.initPlayersOpenCards();
   }
 
   initDeck(): void {
@@ -36,6 +45,78 @@ class SkyjoGame extends Game<ISkyjoState> {
     this.addCardsToDeck([-2], 5);
 
     this.shuffle();
+  }
+
+  allActions(): IAction[] {
+    return [
+      {
+        type: "SWITCH_OPEN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD",
+        updateState: () => {
+          const playerState = this.getPlayersState();
+          
+          const openDeckCard = this.drawCardFromDiscardPile();
+  
+          playerState.openCards.push(openDeckCard)
+          this.state.discardPile.push(this.drawHighestOpenHandCard(playerState));
+        },
+        endsTurn: true
+      },
+      {
+        type: "SWITCH_OPEN_DECK_CARD_WITH_CLOSED_HAND_CARD",
+        updateState: () => {
+          const playerState = this.getPlayersState();
+  
+          const closedPlayerCard = this.drawCardFromClosedPlayerCards(playerState);
+          const openDeckCard = this.drawCardFromDiscardPile();
+
+          playerState.openCards.push(openDeckCard)
+          this.state.discardPile.push(closedPlayerCard); 
+        },
+        endsTurn: true
+      },
+      {
+        type: "DRAW_CLOSED_DECK_CARD",
+        updateState: () => {
+          this.state.drawnClosedCard = this.drawCardFromDeck();
+        },
+        endsTurn: false
+      },
+      {
+        type: "DISCARD_DRAWN_DECK_CARD_AND_OPEN_CLOSED_HAND_CARD",
+        updateState: () => {
+          if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
+          this.state.discardPile.push(this.state.drawnClosedCard);
+          this.state.drawnClosedCard = null;
+
+          const playerState = this.getPlayersState();
+          const closedCard = this.drawCardFromClosedPlayerCards(playerState);
+          playerState.openCards.push(closedCard);
+        },
+        endsTurn: true
+      },
+      {
+        type: "SWITCH_DRAWN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD",
+        updateState: () => {
+          if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
+          const playerState = this.getPlayersState();
+          this.state.discardPile.push(this.drawHighestOpenHandCard(playerState))
+          
+          playerState.openCards.push(this.state.drawnClosedCard);
+          this.state.drawnClosedCard = null;
+        },
+        endsTurn: true
+      },
+      {
+        type: "SWITCH_DRAWN_DECK_CARD_WITH_CLOSED_HAND_CARD",
+        updateState: () => {
+          if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
+
+
+          this.state.drawnClosedCard = null;
+        },
+        endsTurn: true
+      }
+    ];
   }
 
   addCardsToDeck(cards: number[], repeat: number = 1): void {
@@ -61,13 +142,49 @@ class SkyjoGame extends Game<ISkyjoState> {
   }
 
   initOpenCard(): void {
-    this.state.openCard = this.drawCardFromDeck();
+    this.state.discardPile.push(this.drawCardFromDeck());
+  }
+
+  initPlayersOpenCards(): void {
+    this.players.forEach(player => {
+      const playerState = this.getPlayersState(player);
+
+      for (let i = 0; i < this.initialOpenCards; i++) {
+        const card = playerState.closedCards.pop();
+        card && playerState.openCards.push(card);
+      }
+
+    });
   }
 
   drawCardFromDeck(): number {
     const topCard = this.state.deck.pop();
-    if (topCard === undefined) throw new Error('No cards left in the deck');
+    if (topCard === undefined) throw new Error('Illegal action: No cards left in the deck');
     return topCard;
+  }
+
+  drawCardFromDiscardPile(): number {
+    const card = this.state.discardPile.pop();
+    if (card === undefined) throw new Error('Illegal action: No cards available on the discard pile');
+    return card;
+  }
+
+  drawCardFromClosedPlayerCards(playerState: ISkyjoPlayerState): number {
+    const card = playerState.closedCards.pop();
+    if (!card) throw new Error("Illegal action: no cards available in closed cards");
+    return card;
+  }
+
+  drawCardFromOpenPlayerCards(playerState: ISkyjoPlayerState): number {
+    const card = playerState.openCards.pop();
+    if (!card) throw new Error("Illegal action: no cards available in open cards");
+    return card;
+  }
+
+  drawHighestOpenHandCard(playerState: ISkyjoPlayerState): number {
+    const highestCard = Math.max(...playerState.openCards);
+    const indexOfHighestCard = playerState.openCards.indexOf(highestCard);
+    return playerState.openCards.splice(indexOfHighestCard, 1)[0];
   }
 
   determineNextPlayer(): IPlayer<ISkyjoState> {
@@ -76,11 +193,24 @@ class SkyjoGame extends Game<ISkyjoState> {
     return player;
   }
 
+  getCurrentPlayer(): IPlayer<ISkyjoState> {
+    return this.players[this.state.currentPlayerIndex];
+  }
+
+  getPlayersState(player?: IPlayer<ISkyjoState>): ISkyjoPlayerState {
+    return this.state.playerStates.get(player || this.getCurrentPlayer())!;
+  }
+
   isGameFinished(): boolean {
     return false; //TODO: check score?? OR check all open cards of every player
+    // Check score - deze ftie moet enkel de eindconditie van het spel checken
   };
 
-  getAllowedActions(state: ISkyjoState): IAction<ISkyjoState>[] {
-    return []; // TODO: check state for current player...
+  getAllowedActions(): IAction[] {
+    return []; 
+    
+    // TODO: check state for current player...
+    // Is deze functie nodig? Je kan altijd alle acties meegeven, de actie die de speler kiest hangt volledig van z'n state af?
+    // Je kan bij het executen van de actie checken of de actie valid is en zo niet een nieuwe actie vragen (kan wel inf loop veroorzaken)
   }
 }
