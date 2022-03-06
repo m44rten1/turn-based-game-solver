@@ -148,19 +148,17 @@ class SkyjoGame extends Game<ISkyjoState> {
   initPlayersOpenCards(): void {
     this.players.forEach(player => {
       const playerState = this.getPlayersState(player);
-
       for (let i = 0; i < this.initialOpenCards; i++) {
         const card = playerState.closedCards.pop();
         card && playerState.openCards.push(card);
       }
-
     });
   }
 
   drawCardFromDeck(): number {
-    const topCard = this.state.deck.pop();
-    if (topCard === undefined) throw new Error('Illegal action: No cards left in the deck');
-    return topCard;
+    const card = this.state.deck.pop();
+    if (card === undefined) throw new Error('Illegal action: No cards left in the deck');
+    return card;
   }
 
   drawCardFromDiscardPile(): number {
@@ -171,13 +169,13 @@ class SkyjoGame extends Game<ISkyjoState> {
 
   drawCardFromClosedPlayerCards(playerState: ISkyjoPlayerState): number {
     const card = playerState.closedCards.pop();
-    if (!card) throw new Error("Illegal action: no cards available in closed cards");
+    if (card === undefined) throw new Error("Illegal action: no cards available in closed cards");
     return card;
   }
 
   drawCardFromOpenPlayerCards(playerState: ISkyjoPlayerState): number {
     const card = playerState.openCards.pop();
-    if (!card) throw new Error("Illegal action: no cards available in open cards");
+    if (card === undefined) throw new Error("Illegal action: no cards available in open cards");
     return card;
   }
 
