@@ -4,7 +4,7 @@ import IPlayer from "../generic/IPlayer";
 import ISkyjoPlayerState from "./ISkyjoPlayerState";
 import ISkyjoState from "./ISkyjoState";
 
-export type actionType = 
+export type ActionType = 
 | "SWITCH_OPEN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD"
 | "SWITCH_OPEN_DECK_CARD_WITH_CLOSED_HAND_CARD"
 | "DRAW_CLOSED_DECK_CARD"
@@ -14,7 +14,7 @@ export type actionType =
 
 export default class SkyjoGame extends Game<ISkyjoState> {
 
-  // TODO: game settings object
+  // Game settings
   handSize: number = 12;
   initialOpenCards: number = 2;
   maxGlobalScore: number = 100;
@@ -28,7 +28,7 @@ export default class SkyjoGame extends Game<ISkyjoState> {
       discardPile: [],
       deck: [],
       drawnClosedCard: null,
-      playerStates: new Map(players.map(player => { return [player, {openCards: [], closedCards: [], globalScore: 0}]})),
+      playerStates: players.map(() => { return {openCards: [], closedCards: [], globalScore: 0}}),
       currentPlayerIndex: 0
     }
 
@@ -38,23 +38,68 @@ export default class SkyjoGame extends Game<ISkyjoState> {
   public beforeTurn(): void {
     if (!this.isRoundStarted) {
       this.initState();
+      this.isRoundStarted = true;
     }
   }
 
   public afterTurn(): void {
+    if (this.state.playerStates.every(playerState => playerState.closedCards.length === 0)) {
+      this.roundEnded();
+    }
+  }
 
+  private roundEnded() {
+    this.isRoundStarted = false;
+    this.tallyRoundScores();
+  }
+
+  private tallyRoundScores(): void {
+    const playerScores = this.state.playerStates.map(playerState => playerState.openCards.reduce((a,b) => a + b));
+
+    this.state.playerStates.forEach((playerState, index) => {
+      const score = playerScores[index];
+
+      if (index === this.getNextPlayerIndex() && playerScores.some(s => s >= score)) {
+        playerState.globalScore += 3 * score;
+      } else {
+        playerState.globalScore += score;
+      }
+    })
   }
 
   public isGameFinished(): boolean {
-    return this.players.some(player => this.getPlayersState(player).globalScore >= this.maxGlobalScore);
+    return this.state.playerStates.some(playerState => playerState.globalScore >= this.maxGlobalScore);
   }
 
   public getAllowedActions(): IAction[] {
-    return []; 
-    
-    // TODO: check state for current player...
-    // Is deze functie nodig? Je kan altijd alle acties meegeven, de actie die de speler kiest hangt volledig van z'n state af?
-    // Je kan bij het executen van de actie checken of de actie valid is en zo niet een nieuwe actie vragen (kan wel inf loop veroorzaken)
+    const actionsTypes: ActionType[] = [];
+
+    const playerState = this.getPlayersState();
+
+    if (!this.state.drawnClosedCard) {
+      if (playerState.openCards.length > 0 && this.state.discardPile.length > 0) {
+        actionsTypes.push("SWITCH_OPEN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD");
+      }
+
+      if (playerState.closedCards.length > 0 && this.state.discardPile.length > 0) {
+        actionsTypes.push("SWITCH_OPEN_DECK_CARD_WITH_CLOSED_HAND_CARD");
+      }
+
+      if (this.state.deck.length > 0) {
+        actionsTypes.push("DRAW_CLOSED_DECK_CARD");
+      }
+    } else {
+      if (playerState.closedCards.length > 0) {
+        actionsTypes.push("DISCARD_DRAWN_DECK_CARD_AND_OPEN_CLOSED_HAND_CARD");
+        actionsTypes.push("SWITCH_DRAWN_DECK_CARD_WITH_CLOSED_HAND_CARD");
+      }
+
+      if (playerState.openCards.length > 0) {
+        actionsTypes.push("SWITCH_DRAWN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD");
+      }
+    }
+
+    return actionsTypes.map(actionType => this.allActions().find(action => action.type === actionType)!);
   }
 
   public determineNextPlayer(): IPlayer<ISkyjoState> {
@@ -84,9 +129,7 @@ export default class SkyjoGame extends Game<ISkyjoState> {
         type: "SWITCH_OPEN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD",
         updateState: () => {
           const playerState = this.getPlayersState();
-          
           const openDeckCard = this.drawCardFromDiscardPile();
-  
           playerState.openCards.push(openDeckCard)
           this.state.discardPile.push(this.drawHighestOpenHandCard(playerState));
         },
@@ -96,12 +139,10 @@ export default class SkyjoGame extends Game<ISkyjoState> {
         type: "SWITCH_OPEN_DECK_CARD_WITH_CLOSED_HAND_CARD",
         updateState: () => {
           const playerState = this.getPlayersState();
-  
           const closedPlayerCard = this.drawCardFromClosedPlayerCards(playerState);
           const openDeckCard = this.drawCardFromDiscardPile();
-
           playerState.openCards.push(openDeckCard)
-          this.state.discardPile.push(closedPlayerCard); 
+          this.state.discardPile.push(closedPlayerCard);
         },
         endsTurn: true
       },
@@ -118,7 +159,6 @@ export default class SkyjoGame extends Game<ISkyjoState> {
           if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
           this.state.discardPile.push(this.state.drawnClosedCard);
           this.state.drawnClosedCard = null;
-
           const playerState = this.getPlayersState();
           const closedCard = this.drawCardFromClosedPlayerCards(playerState);
           playerState.openCards.push(closedCard);
@@ -131,7 +171,6 @@ export default class SkyjoGame extends Game<ISkyjoState> {
           if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
           const playerState = this.getPlayersState();
           this.state.discardPile.push(this.drawHighestOpenHandCard(playerState))
-          
           playerState.openCards.push(this.state.drawnClosedCard);
           this.state.drawnClosedCard = null;
         },
@@ -142,7 +181,7 @@ export default class SkyjoGame extends Game<ISkyjoState> {
         updateState: () => {
           if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
           const playerState = this.getPlayersState();
-          const closedHandCard = playerState.closedCards.pop()!;
+          const closedHandCard = this.drawCardFromClosedPlayerCards(playerState);
           this.state.discardPile.push(closedHandCard);
           playerState.openCards.push(this.state.drawnClosedCard);
           this.state.drawnClosedCard = null;
@@ -166,9 +205,7 @@ export default class SkyjoGame extends Game<ISkyjoState> {
   }
 
   private dealCards(): void {
-    this.players.forEach(player => {
-      const playerState = this.state.playerStates.get(player);
-
+    this.state.playerStates.forEach((playerState) => {
       if (!playerState) throw new Error("Can't deal cards to this player")
       playerState.closedCards = [];
 
@@ -182,12 +219,10 @@ export default class SkyjoGame extends Game<ISkyjoState> {
   }
 
   private initPlayersOpenCards(): void {
-    this.players.forEach(player => {
-      const playerState = this.getPlayersState(player);
+    this.state.playerStates.forEach(playerState => {
       playerState.openCards = [];
       for (let i = 0; i < this.initialOpenCards; i++) {
-        const card = playerState.closedCards.pop();
-        card && playerState.openCards.push(card);
+        playerState.openCards.push(this.drawCardFromClosedPlayerCards(playerState));
       }
     });
   }
@@ -210,23 +245,17 @@ export default class SkyjoGame extends Game<ISkyjoState> {
     return card;
   }
 
-  private drawCardFromOpenPlayerCards(playerState: ISkyjoPlayerState): number {
-    const card = playerState.openCards.pop();
-    if (card === undefined) throw new Error("Illegal action: no cards available in open cards");
-    return card;
-  }
-
   private drawHighestOpenHandCard(playerState: ISkyjoPlayerState): number {
     const highestCard = Math.max(...playerState.openCards);
     const indexOfHighestCard = playerState.openCards.indexOf(highestCard);
     return playerState.openCards.splice(indexOfHighestCard, 1)[0];
   }
 
-  private getCurrentPlayer(): IPlayer<ISkyjoState> {
-    return this.players[this.state.currentPlayerIndex];
+  private getNextPlayerIndex(): number {
+    return (this.state.currentPlayerIndex + 1) % this.players.length;
   }
 
-  private getPlayersState(player?: IPlayer<ISkyjoState>): ISkyjoPlayerState {
-    return this.state.playerStates.get(player || this.getCurrentPlayer())!;
+  private getPlayersState(): ISkyjoPlayerState {
+    return this.state.playerStates[this.state.currentPlayerIndex];
   }
 }
