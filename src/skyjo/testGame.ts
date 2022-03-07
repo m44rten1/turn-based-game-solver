@@ -14,11 +14,7 @@ const chooseRandomActionStrategy = (
   state: ISkyjoState,
   allowedActions: IAction[]
 ) => {
-  const randomAction =
-    allowedActions[randomIntFromInterval(0, allowedActions.length - 1)];
-  return new Promise<IAction>((resolve) => {
-    resolve(randomAction);
-  });
+  return allowedActions[randomIntFromInterval(0, allowedActions.length - 1)];
 };
 
 players.push(
@@ -33,9 +29,9 @@ players.push(
   }
 );
 
-const test = async () => {
+const test = () => {
   const game = new SkyjoGame(players);
-  await game.start();
+  game.start();
   console.log(game.state);
 }
 

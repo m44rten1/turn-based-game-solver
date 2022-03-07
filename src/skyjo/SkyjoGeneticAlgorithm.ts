@@ -5,7 +5,7 @@ import IPlayer from "../generic/IPlayer";
 
 type Chromosome = ActionType[];
 
-const initialPopulationSize = 30;
+const initialPopulationSize = 200;
 
 const randomIntFromInterval = (min: number, max: number) => {
   // min and max included
@@ -25,14 +25,14 @@ const actionTypes: ActionType[] = [
   "SWITCH_DRAWN_DECK_CARD_WITH_CLOSED_HAND_CARD",
 ];
 
-const stateCompression = (skyjoState: ISkyjoState): number => {
-  const highestCardFromDiscardPile =
+const stateCompressionOld = (skyjoState: ISkyjoState): number => {
+  const topCardFromDiscardPile =
     skyjoState.discardPile[skyjoState.discardPile.length - 1];
   const highestOpenHandCard = Math.max(
     ...skyjoState.playerStates[skyjoState.currentPlayerIndex].openCards
   );
   if (skyjoState.drawnClosedCard === null) {
-    if (highestCardFromDiscardPile < highestOpenHandCard) {
+    if (topCardFromDiscardPile < highestOpenHandCard) {
       return 0;
     } else {
       return 1;
@@ -46,8 +46,46 @@ const stateCompression = (skyjoState: ISkyjoState): number => {
   }
 };
 
-const generateRandomChromosome = (): Chromosome => {
-  return Array(4)
+const stateCompression = (skyjoState: ISkyjoState): number => {
+  let result = 0;
+
+  const currentPlayerState =
+    skyjoState.playerStates[skyjoState.currentPlayerIndex];
+
+  const topCardFromDiscardPile =
+    skyjoState.discardPile[skyjoState.discardPile.length - 1];
+  const highestOpenHandCard = Math.max(...currentPlayerState.openCards);
+
+  if (currentPlayerState.closedCards.length === 1) {
+    const allScores = skyjoState.playerStates.map((ps) =>
+      ps.openCards.reduce((a, b) => a + b) + ps.closedCards.length * 5
+    );
+    const bestScore = Math.min(...allScores);
+    if (currentPlayerState.openCards.reduce((a, b) => a + b) + currentPlayerState.closedCards.length * 5 === bestScore) {
+      result += 4;
+    } else {
+      result += 8;
+    }
+  }
+  if (skyjoState.drawnClosedCard === null) {
+    if (topCardFromDiscardPile < highestOpenHandCard) {
+      result += 0;
+    } else {
+      result += 1;
+    }
+  } else {
+    if (skyjoState.drawnClosedCard < highestOpenHandCard) {
+      result += 2;
+    } else {
+      result += 3;
+    }
+  }
+
+  return result;
+};
+
+const generateRandomChromosome = (length: number = 4): Chromosome => {
+  return Array(length)
     .fill(null)
     .map(() => getRandomActionType());
 };
@@ -55,14 +93,14 @@ const generateRandomChromosome = (): Chromosome => {
 const createPopulation = (): Chromosome[] => {
   const chromosomes: Chromosome[] = [];
   for (let i = 0; i < initialPopulationSize; i++) {
-    chromosomes.push(generateRandomChromosome());
+    chromosomes.push(generateRandomChromosome(12));
   }
   return chromosomes;
 };
 
 const mutationFunction = (chromosome: Chromosome) => {
   return chromosome.map((gen) => {
-    return Math.random() > 0.99 ? getRandomActionType() : gen;
+    return Math.random() > 0.9 ? getRandomActionType() : gen;
   });
 };
 
@@ -82,7 +120,7 @@ const crossoverFunction = (
 
 const strategyGenerator = (
   chromosome: Chromosome
-): ((state: ISkyjoState, allowedActions: IAction[]) => Promise<IAction>) => {
+): ((state: ISkyjoState, allowedActions: IAction[]) => IAction) => {
   return (state: ISkyjoState, allowedActions: IAction[]) => {
     const stateIndex = stateCompression(state);
 
@@ -94,17 +132,41 @@ const strategyGenerator = (
         allowedActions[randomIntFromInterval(0, allowedActions.length - 1)];
     }
 
-    return Promise.resolve(action);
+    return action;
+  };
+};
+
+const strategyGeneratorOld = (
+  chromosome: Chromosome
+): ((state: ISkyjoState, allowedActions: IAction[]) => IAction) => {
+  return (state: ISkyjoState, allowedActions: IAction[]) => {
+    const stateIndex = stateCompressionOld(state);
+
+    let actionType = chromosome[stateIndex];
+
+    let action = allowedActions.find((action) => action.type === actionType);
+    if (!action) {
+      action =
+        allowedActions[randomIntFromInterval(0, allowedActions.length - 1)];
+    }
+
+    return action;
   };
 };
 
 const createPlayer = (chromosome: Chromosome): IPlayer<ISkyjoState> => {
   return {
-    strategy: strategyGenerator(chromosome)
-  }
-}
+    strategy: strategyGenerator(chromosome),
+  };
+};
 
-const doesABeatBFunction = async (
+const createPlayerOld = (chromosome: Chromosome): IPlayer<ISkyjoState> => {
+  return {
+    strategy: strategyGeneratorOld(chromosome),
+  };
+};
+
+const doesABeatBFunction = (
   chromosomeA: Chromosome,
   chromosomeB: Chromosome
 ) => {
@@ -112,14 +174,28 @@ const doesABeatBFunction = async (
   const player2 = createPlayer(chromosomeB);
 
   const game = new SkyjoGame([player1, player2]);
-  await game.start();
+  game.start();
   return game.getWinnerIndex() === 0;
+};
+
+const fitnessFunction = (chromosome: Chromosome): number => {
+  let totalScore = 0;
+
+  const player = createPlayer(chromosome);
+
+  for (let i = 0; i < 30; i++) {
+    const game = new SkyjoGame([player, randomPlayer]);
+    game.start();
+    totalScore += game.state.playerStates[0].globalScore;
+  }
+  return -totalScore;
 };
 
 const config = {
   mutationFunction,
   crossoverFunction,
-  doesABeatBFunction,
+  // doesABeatBFunction,
+  fitnessFunction,
   population: createPopulation(),
   populationSize: initialPopulationSize, // defaults to 100
 };
@@ -133,37 +209,73 @@ const chooseRandomActionStrategy = (
 ) => {
   const randomAction =
     allowedActions[randomIntFromInterval(0, allowedActions.length - 1)];
-  return Promise.resolve(randomAction);
+  return randomAction;
 };
 
 const randomPlayer: IPlayer<ISkyjoState> = {
   strategy: chooseRandomActionStrategy,
 };
 
-const playGameAndPrintScore = async (player1: IPlayer<ISkyjoState>, player2: IPlayer<ISkyjoState>, gameIndex: number) => {
+const playGameAndPrintScore = (
+  player1: IPlayer<ISkyjoState>,
+  player2: IPlayer<ISkyjoState>,
+  gameIndex: number
+) => {
   const game = new SkyjoGame([player1, player2]);
-  await game.start();
+  game.start();
   console.log(`--- GAME ${gameIndex} STARTS ---`);
   console.log(`Player1: ${game.state.playerStates[0].globalScore}`);
   console.log(`Player2: ${game.state.playerStates[1].globalScore}`);
   console.log("");
-  return Promise.resolve(game.getWinnerIndex());
-}
+  return game.getWinnerIndex();
+};
 
-const test = async () => {
+const possibleChromomes: Chromosome[] = [];
 
+const actionTypesForFirstTwo: ActionType[] = actionTypes.slice(0, 3);
+const actionTypesForLastTwo: ActionType[] = actionTypes.slice(3);
+
+actionTypesForFirstTwo.forEach((type1) => {
+  actionTypesForFirstTwo.forEach((type2) => {
+    actionTypesForLastTwo.forEach((type3) => {
+      actionTypesForLastTwo.forEach((type4) => {
+        possibleChromomes.push([type1, type2, type3, type4]);
+      });
+    });
+  });
+});
+
+const scores = possibleChromomes.map((chromosome) => {
+  let totalScore = 0;
+
+  const player = createPlayerOld(chromosome);
+
+  for (let i = 0; i < 100; i++) {
+    const game = new SkyjoGame([player, randomPlayer]);
+    game.start();
+    totalScore += game.state.playerStates[0].globalScore;
+  }
+  return -totalScore;
+});
+
+const test = () => {
   const winnerCount = [0, 0];
   const iterationCount = 100;
 
-  for(let i = 0; i < iterationCount; i++) {
+  for (let i = 0; i < iterationCount; i++) {
     geneticAlgorithm.evolve();
     const best: Chromosome = geneticAlgorithm.best();
     const player = createPlayer(best);
-    const winnerIndex = await playGameAndPrintScore(player, randomPlayer, i);
+    const goodStrategy = createPlayer(possibleChromomes[21]);
+    const winnerIndex = playGameAndPrintScore(player, goodStrategy, i);
     winnerCount[winnerIndex]++;
+    console.log("Best: ", best);
   }
 
-  console.log("Win rate GA: ", 100 * winnerCount[0] / iterationCount);
-}
+  console.log("Win rate GA: ", (100 * winnerCount[0]) / iterationCount);
+};
 
 test();
+
+console.log("Done", scores.indexOf(Math.max(...scores)));
+console.log("Done");
