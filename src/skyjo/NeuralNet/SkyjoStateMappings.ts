@@ -2,9 +2,13 @@ import ISkyjoState from "../ISkyjoState";
 import IAction from "../../generic/IAction";
 import { ActionType } from "../SkyjoGame";
 
+const round = (x: number, precision = 2): number => {
+  const precisionFactor = Math.pow(10, precision);
+  return Math.round(precisionFactor * x) / precisionFactor;
+}
 
 const normalizeCard = (card: number): number =>{
-    return (card + 2) / 14;
+    return round((card + 2) / 14);
 }
 
 export const mapStateToNNInput = (state: ISkyjoState): {[key: string]: number} => {
@@ -57,7 +61,7 @@ export const mapStateToNNInput = (state: ISkyjoState): {[key: string]: number} =
       ] = normalizeCard(playerState.openCards[playerOpenCardIndex]);
     }
     mappedState["player" + getPlayerName(playerStateIndex) + "NumberOfClosedCards"] =
-      playerState.closedCards.length / 12;
+      round(playerState.closedCards.length / 12);
   }
   return mappedState;
 }

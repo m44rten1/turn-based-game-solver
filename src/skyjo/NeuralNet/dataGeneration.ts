@@ -1,5 +1,6 @@
+import { addDataToFile } from './../../util';
 import { ActionType } from "./../SkyjoGame";
-import { mapStateToNNInput, mapActionToNNOutput } from "./SkyjoStateMappings";
+import { mapStateToNNInput } from "./SkyjoStateMappings";
 import {
   randomStrategy,
   generateSpecificActionStrategy,
@@ -10,8 +11,8 @@ import ISkyjoState from "../ISkyjoState";
 import SkyjoGame from "../SkyjoGame";
 
 export const generateTrainingData = (
+  gameCount = 10,
   playerCount = 2,
-  gameCount = 1
 ): {
   input: { [key: string]: number };
   output: { [key: string]: number };
@@ -36,7 +37,7 @@ export const generateTrainingData = (
       hasNextMove = game.nextTurn();
 
       // Fix for doing also some of the after DRAW_CLOSED_DECK_CARD actions
-      if (Math.random() > 0.7) {
+      if (Math.random() > 0.7 && game.state.global.isRoundStarted) {
         const action = game.getActionByType("DRAW_CLOSED_DECK_CARD");
         action.updateState();
       }
@@ -83,7 +84,7 @@ const dataPointForState = (
 
   const output: { [key: string]: number } = {};
   actionTypes.forEach((type, index) => {
-    output[type] = normalizedActionScores[index];
+    output[type] = normalizedActionScores[index] === 1 ? normalizedActionScores[index] : 0;
   });
 
   return {
@@ -156,3 +157,8 @@ const prepareGame = (state: ISkyjoState): SkyjoGame => {
 game.setState(state);
   return game;
 };
+
+
+const data = generateTrainingData(10);
+
+addDataToFile("data.json", data);
