@@ -8,7 +8,7 @@ const round = (x: number, precision = 2): number => {
 }
 
 const normalizeCard = (card: number): number =>{
-    return round((card + 2) / 14);
+    return round(((card + 2) / 28) + 0.5);
 }
 
 export const mapStateToNNInput = (state: ISkyjoState): {[key: string]: number} => {
