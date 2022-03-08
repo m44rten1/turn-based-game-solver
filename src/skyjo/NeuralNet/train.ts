@@ -9,20 +9,28 @@ const config = {
   hiddenLayers: [3], // array of ints for the sizes of the hidden layers in the network
   log: true,
   errorThresh: 0.0005,
-  logPeriod: 10,
+  iterations: 20000, // the maximum times to iterate the training data --> number greater than 0
+
+  logPeriod: 100,
   activation: 'sigmoid', // supported activation types: ['sigmoid', 'relu', 'leaky-relu', 'tanh'],
   leakyReluAlpha: 0.01, // supported for activation type 'leaky-relu'
 };
 
-const net = new brain.NeuralNetwork(config);
+const crossValidate = new brain.CrossValidate(() => new brain.NeuralNetwork(config));
+crossValidate.train(data, {}); //note k (or KFolds) is optional
+const json = crossValidate.toJSON(); // all stats in json as well as neural networks
+const net = crossValidate.toNeuralNetwork(); // get top performing net out of `crossValidate`
 
-net.train(data);
 
-const fileName = "model.json";
-fs.writeFileSync(fileName, JSON.stringify(net));
+// const net = new brain.NeuralNetwork(config);
+
+// net.train(data);
+
+// const fileName = "model.json";
+// fs.writeFileSync(fileName, JSON.stringify(net.toJSON()));
 
 // const net2 = new brain.NeuralNetwork();
-// net2.fromJSON(fs.readFileSync(fileName))
+// net2.fromJSON(JSON.parse(fs.readFileSync(fileName)))
 
 // console.log()
-// const output = net.run([1, 0]); // [0.987]
+//const output = net.run([1, 0]); // [0.987]
