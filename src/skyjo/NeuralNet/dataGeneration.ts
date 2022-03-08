@@ -1,4 +1,4 @@
-import { addDataToFile } from './../../util';
+import { addDataToFile, writeObjectToFile } from './../../util';
 import { ActionType } from "./../SkyjoGame";
 import { mapStateToNNInput } from "./SkyjoStateMappings";
 import {
@@ -49,7 +49,7 @@ export const generateTrainingData = (
   return trainingData;
 };
 
-type DataPoint = {
+export type DataPoint = {
   input: { [key: string]: number };
   output: { [key: string]: number };
   // debugState: ISkyjoState;
@@ -158,7 +158,10 @@ game.setState(state);
   return game;
 };
 
+for(let i = 0; i < 2000; i++) {
+  const data = generateTrainingData(1);
+  addDataToFile("data.json", data);
+}
 
-const data = generateTrainingData(10);
 
-addDataToFile("data.json", data);
+// writeObjectToFile("validation.json", data);

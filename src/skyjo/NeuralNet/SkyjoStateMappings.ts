@@ -14,15 +14,9 @@ const normalizeCard = (card: number): number =>{
 export const mapStateToNNInput = (state: ISkyjoState): {[key: string]: number} => {
   let mappedState: { [key: string]: number } = {};
 
-  for (
-    let discardPileIndex = 0;
-    discardPileIndex < state.round.discardPile.length;
-    discardPileIndex++
-  ) {
-    mappedState["discardPile" + discardPileIndex] = normalizeCard(
-      state.round.discardPile[state.round.discardPile.length - 1 - discardPileIndex]
-    );
-  }
+  mappedState["discardPile0"] = normalizeCard(
+    state.round.discardPile[state.round.discardPile.length - 1]
+  );
 
   if (state.round.drawnClosedCard !== null) {
     mappedState["drawnClosedCard"] = normalizeCard(state.round.drawnClosedCard);
