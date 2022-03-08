@@ -11,7 +11,7 @@ import SkyjoGame from "../SkyjoGame";
 
 export const generateTrainingData = (
   playerCount = 2,
-  gameCount = 10
+  gameCount = 1
 ): {
   input: { [key: string]: number };
   output: { [key: string]: number };
@@ -29,10 +29,19 @@ export const generateTrainingData = (
     const game = new SkyjoGame(players);
 
     let hasNextMove = true;
+    let flipper = 0;
     while (hasNextMove) {
-      const dataPoint = dataPointForState(game.state, 150);
+      const dataPoint = dataPointForState(game.state, 50);
       trainingData.push(dataPoint);
       hasNextMove = game.nextTurn();
+
+      // Fix for doing also some of the after DRAW_CLOSED_DECK_CARD actions
+      if (Math.random() > 0.7) {
+        const action = game.getActionByType("DRAW_CLOSED_DECK_CARD");
+        action.updateState();
+      }
+
+      flipper++;
     }
   }
 
@@ -42,6 +51,7 @@ export const generateTrainingData = (
 type DataPoint = {
   input: { [key: string]: number };
   output: { [key: string]: number };
+  // debugState: ISkyjoState;
 };
 
 const dataPointForState = (
@@ -76,7 +86,11 @@ const dataPointForState = (
     output[type] = normalizedActionScores[index];
   });
 
-  return { input: mapStateToNNInput(state), output };
+  return {
+    input: mapStateToNNInput(state),
+    output,
+    // debugState: JSON.parse(JSON.stringify(state)),
+  };
 };
 
 // Returns a score for each action
@@ -86,7 +100,7 @@ const getActionScoresForShuffledState = (
   const allowedActionTypes = getAllowedActionTypes(shuffledState);
 
   const actionScores = allowedActionTypes.map((actionType) => {
-    return getScoreForAction(shuffledState, actionType, 150);
+    return getScoreForAction(shuffledState, actionType, 50);
   });
 
   const result: { [key: string]: number } = {};
@@ -113,7 +127,8 @@ const getScoreForAction = (
 
 const getGameScore = (state: ISkyjoState, actionType: ActionType): number => {
   const game = prepareGame(state);
-  const aiPlayerIndex = game.state.round.currentPlayerIndex;
+  const aiPlayerIndex =
+    (game.state.round.currentPlayerIndex + 1) % game.players.length;
   const aiPlayer = game.players[aiPlayerIndex];
   const strategy = generateSpecificActionStrategy(actionType);
   aiPlayer.strategy = strategy;
@@ -138,6 +153,6 @@ const prepareGame = (state: ISkyjoState): SkyjoGame => {
     strategy: randomStrategy,
   });
   const game = new SkyjoGame(players);
-  game.setState(state);
+game.setState(state);
   return game;
 };
