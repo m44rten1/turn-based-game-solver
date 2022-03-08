@@ -1,5 +1,5 @@
-export default interface IAction {
-  type: string;
+export default interface IAction<ActionType> {
+  type: ActionType;
   updateState: () => void;
   endsTurn: boolean;
 }

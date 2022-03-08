@@ -4,111 +4,158 @@ import IPlayer from "../generic/IPlayer";
 import ISkyjoPlayerState from "./ISkyjoPlayerState";
 import ISkyjoState from "./ISkyjoState";
 
-export type ActionType = 
-| "SWITCH_OPEN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD"
-| "SWITCH_OPEN_DECK_CARD_WITH_CLOSED_HAND_CARD"
-| "DRAW_CLOSED_DECK_CARD"
-| "DISCARD_DRAWN_DECK_CARD_AND_OPEN_CLOSED_HAND_CARD"
-| "SWITCH_DRAWN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD"
-| "SWITCH_DRAWN_DECK_CARD_WITH_CLOSED_HAND_CARD"
+export type ActionType =
+  | "SWITCH_OPEN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD"
+  | "SWITCH_OPEN_DECK_CARD_WITH_CLOSED_HAND_CARD"
+  | "DRAW_CLOSED_DECK_CARD"
+  | "DISCARD_DRAWN_DECK_CARD_AND_OPEN_CLOSED_HAND_CARD"
+  | "SWITCH_DRAWN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD"
+  | "SWITCH_DRAWN_DECK_CARD_WITH_CLOSED_HAND_CARD";
 
-export default class SkyjoGame extends Game<ISkyjoState> {
-
+export default class SkyjoGame extends Game<ISkyjoState, ActionType> {
   // Game settings
-  handSize: number = 12;
-  initialOpenCards: number = 2;
-  maxGlobalScore: number = 100;
+  settings = {
+    handSize: 12,
+    initialOpenCards: 2,
+    maxGlobalScore: 100,
+  };
 
-  // Global game state
-  isRoundStarted = false;
-  roundEndedPlayerIndex = -1;
+  roundIndex = 0;
+  turnIndex = 0;
 
-  constructor(players: IPlayer<ISkyjoState>[]) {
-
+  constructor(players: IPlayer<ISkyjoState, ActionType>[]) {
     const skyjoState: ISkyjoState = {
-      discardPile: [],
-      deck: [],
-      drawnClosedCard: null,
-      playerStates: players.map(() => { return {openCards: [], closedCards: [], globalScore: 0}}),
-      currentPlayerIndex: 0
-    }
+      round: {
+        discardPile: [],
+        deck: [],
+        drawnClosedCard: null,
+        playerStates: players.map(() => {
+          return { openCards: [], closedCards: [], globalScore: 0 };
+        }),
+        currentPlayerIndex: 0,
+      },
+      global: {
+        isRoundStarted: false,
+        roundEndedPlayerIndex: -1,
+      }
+    };
 
     super(skyjoState, players);
+    this.beforeTurn();
+  }
+
+  public clone(): SkyjoGame {
+    const clonedPlayers = this.players.map((player) => {
+      return { strategy: player.strategy };
+    });
+
+    const game = new SkyjoGame(clonedPlayers);
+    game.settings = this.deepClone(this.settings);
+    game.state = this.deepClone(this.state);
+
+    return game;
+  }
+
+  public setState(state: ISkyjoState): void {
+    this.state = this.deepClone(state);
+  }
+
+  private deepClone<T>(obj: T): T {
+    return JSON.parse(JSON.stringify(obj));
   }
 
   public getWinnerIndex(): number {
-    const playerGlobalScores = this.state.playerStates.map(playerState => playerState.globalScore);
+    const playerGlobalScores = this.state.round.playerStates.map(
+      (playerState) => playerState.globalScore
+    );
     const minGlobalScore = Math.min(...playerGlobalScores);
     const indexOfMax = playerGlobalScores.indexOf(minGlobalScore);
     return this.isGameFinished() ? indexOfMax : -1;
   }
 
   public beforeTurn(): void {
-    if (!this.isRoundStarted) {
+    if (!this.state.global.isRoundStarted) {
       this.initState();
-      this.isRoundStarted = true;
+      this.state.global.isRoundStarted = true;
     }
   }
 
   public afterTurn(): void {
+    this.turnIndex++;
     const lastMoveMade = this.getPlayersState().closedCards.length === 0;
 
-    if (this.roundEndedPlayerIndex === -1 && lastMoveMade) {
-      this.roundEndedPlayerIndex = this.state.currentPlayerIndex;
+    if (this.state.global.roundEndedPlayerIndex === -1 && lastMoveMade) {
+      this.state.global.roundEndedPlayerIndex =
+        this.state.round.currentPlayerIndex;
     }
 
-    if (this.getNextPlayerIndex() === this.roundEndedPlayerIndex) {
+    if (
+      this.getNextPlayerIndex() === this.state.global.roundEndedPlayerIndex
+    ) {
       this.openAllClosedCards();
       this.roundEnded();
     }
   }
 
   private openAllClosedCards() {
-    this.state.playerStates.forEach(playerState => {
+    this.state.round.playerStates.forEach((playerState) => {
       playerState.openCards.push(...playerState.closedCards);
       playerState.closedCards = [];
     });
   }
 
   private roundEnded() {
-    this.isRoundStarted = false;
+    this.state.global.isRoundStarted = false;
     this.tallyRoundScores();
-    this.roundEndedPlayerIndex = -1;
+    this.state.global.roundEndedPlayerIndex = -1;
   }
 
   private tallyRoundScores(): void {
-    const playerScores = this.state.playerStates.map(playerState => playerState.openCards.reduce((a,b) => a + b));
+    const playerScores = this.state.round.playerStates.map((playerState) =>
+      playerState.openCards.reduce((a, b) => a + b)
+    );
 
-    this.state.playerStates.forEach((playerState, index) => {
+    this.state.round.playerStates.forEach((playerState, index) => {
       const score = playerScores[index];
 
-      if (index === this.roundEndedPlayerIndex && playerScores.some(s => s < score)) {
-        playerState.globalScore += (3 * score);
+      if (
+        index === this.state.global.roundEndedPlayerIndex &&
+        playerScores.some((s) => s < score)
+      ) {
+        playerState.globalScore += 3 * score;
       } else {
         playerState.globalScore += score;
       }
-    })
+    });
   }
 
   public isGameFinished(): boolean {
-    return this.state.playerStates.some(playerState => playerState.globalScore >= this.maxGlobalScore);
+    return this.state.round.playerStates.some(
+      (playerState) => playerState.globalScore >= this.settings.maxGlobalScore
+    );
   }
 
-  public getAllowedActions(): IAction[] {
+  public getAllowedActionTypes(): ActionType[] {
     const actionsTypes: ActionType[] = [];
 
     const playerState = this.getPlayersState();
 
-    if (!this.state.drawnClosedCard) {
-      if (playerState.openCards.length > 0 && this.state.discardPile.length > 0) {
+    if (!this.state.round.drawnClosedCard) {
+      if (
+        playerState.openCards.length > 0 &&
+        this.state.round.discardPile.length > 0
+      ) {
         actionsTypes.push("SWITCH_OPEN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD");
       }
 
-      if (playerState.closedCards.length > 0 && this.state.discardPile.length > 0) {
+      if (
+        playerState.closedCards.length > 0 &&
+        this.state.round.discardPile.length > 0
+      ) {
         actionsTypes.push("SWITCH_OPEN_DECK_CARD_WITH_CLOSED_HAND_CARD");
       }
 
-      if (this.state.deck.length > 0) {
+      if (this.state.round.deck.length > 0) {
         actionsTypes.push("DRAW_CLOSED_DECK_CARD");
       }
     } else {
@@ -122,12 +169,20 @@ export default class SkyjoGame extends Game<ISkyjoState> {
       }
     }
 
-    return actionsTypes.map(actionType => this.allActions().find(action => action.type === actionType)!);
+    return actionsTypes;
   }
 
-  public setNextPlayer(): IPlayer<ISkyjoState> {
-    this.state.currentPlayerIndex = (this.state.currentPlayerIndex + 1) % this.players.length;
-    return this.players[this.state.currentPlayerIndex];
+  public getActionByType(type: ActionType): IAction<ActionType> {
+    const allActions = this.allActions();
+    const action = allActions.find(action => action.type === type);
+    if (!action) throw new Error("No action exists for the given type");
+    return action;
+  }
+
+  public nextPlayersTurn(): IPlayer<ISkyjoState, ActionType> {
+    this.state.round.currentPlayerIndex =
+      (this.state.round.currentPlayerIndex + 1) % this.players.length;
+    return this.players[this.state.round.currentPlayerIndex];
   }
 
   private initState(): void {
@@ -135,138 +190,157 @@ export default class SkyjoGame extends Game<ISkyjoState> {
     this.dealCards();
     this.initOpenCard();
     this.initPlayersOpenCards();
-    this.state.drawnClosedCard = null;
+    this.state.round.drawnClosedCard = null;
+    this.roundIndex ++;
   }
 
   private initDeck(): void {
-    this.state.deck = [];
-    this.state.discardPile = [];
+    this.state.round.deck = [];
+    this.state.round.discardPile = [];
     this.addCardsToDeck([-1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 10);
     this.addCardsToDeck([0], 15);
     this.addCardsToDeck([-2], 5);
 
-    this.shuffle();
+    this.shuffleDeck();
   }
 
-  private allActions(): IAction[] {
+  private allActions(): IAction<ActionType>[] {
     return [
       {
         type: "SWITCH_OPEN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD",
         updateState: () => {
           const playerState = this.getPlayersState();
           const openDeckCard = this.drawCardFromDiscardPile();
-          this.state.discardPile.push(this.drawHighestOpenHandCard(playerState));
-          playerState.openCards.push(openDeckCard)
+          this.state.round.discardPile.push(
+            this.drawHighestOpenHandCard(playerState)
+          );
+          playerState.openCards.push(openDeckCard);
         },
-        endsTurn: true
+        endsTurn: true,
       },
       {
         type: "SWITCH_OPEN_DECK_CARD_WITH_CLOSED_HAND_CARD",
         updateState: () => {
           const playerState = this.getPlayersState();
-          const closedPlayerCard = this.drawCardFromClosedPlayerCards(playerState);
+          const closedPlayerCard =
+            this.drawCardFromClosedPlayerCards(playerState);
           const openDeckCard = this.drawCardFromDiscardPile();
-          playerState.openCards.push(openDeckCard)
-          this.state.discardPile.push(closedPlayerCard);
+          playerState.openCards.push(openDeckCard);
+          this.state.round.discardPile.push(closedPlayerCard);
         },
-        endsTurn: true
+        endsTurn: true,
       },
       {
         type: "DRAW_CLOSED_DECK_CARD",
         updateState: () => {
-          this.state.drawnClosedCard = this.drawCardFromDeck();
+          this.state.round.drawnClosedCard = this.drawCardFromDeck();
         },
-        endsTurn: false
+        endsTurn: false,
       },
       {
         type: "DISCARD_DRAWN_DECK_CARD_AND_OPEN_CLOSED_HAND_CARD",
         updateState: () => {
-          if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
-          this.state.discardPile.push(this.state.drawnClosedCard);
-          this.state.drawnClosedCard = null;
+          if (!this.state.round.drawnClosedCard)
+            throw new Error("Illegal action: No card was drawn");
+          this.state.round.discardPile.push(this.state.round.drawnClosedCard);
+          this.state.round.drawnClosedCard = null;
           const playerState = this.getPlayersState();
           const closedCard = this.drawCardFromClosedPlayerCards(playerState);
           playerState.openCards.push(closedCard);
         },
-        endsTurn: true
+        endsTurn: true,
       },
       {
         type: "SWITCH_DRAWN_DECK_CARD_WITH_HIGHEST_OPEN_HAND_CARD",
         updateState: () => {
-          if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
+          if (!this.state.round.drawnClosedCard)
+            throw new Error("Illegal action: No card was drawn");
           const playerState = this.getPlayersState();
-          this.state.discardPile.push(this.drawHighestOpenHandCard(playerState))
-          playerState.openCards.push(this.state.drawnClosedCard);
-          this.state.drawnClosedCard = null;
+          this.state.round.discardPile.push(
+            this.drawHighestOpenHandCard(playerState)
+          );
+          playerState.openCards.push(this.state.round.drawnClosedCard);
+          this.state.round.drawnClosedCard = null;
         },
-        endsTurn: true
+        endsTurn: true,
       },
       {
         type: "SWITCH_DRAWN_DECK_CARD_WITH_CLOSED_HAND_CARD",
         updateState: () => {
-          if (!this.state.drawnClosedCard) throw new Error("Illegal action: No card was drawn");
+          if (!this.state.round.drawnClosedCard)
+            throw new Error("Illegal action: No card was drawn");
           const playerState = this.getPlayersState();
-          const closedHandCard = this.drawCardFromClosedPlayerCards(playerState);
-          this.state.discardPile.push(closedHandCard);
-          playerState.openCards.push(this.state.drawnClosedCard);
-          this.state.drawnClosedCard = null;
+          const closedHandCard =
+            this.drawCardFromClosedPlayerCards(playerState);
+          this.state.round.discardPile.push(closedHandCard);
+          playerState.openCards.push(this.state.round.drawnClosedCard);
+          this.state.round.drawnClosedCard = null;
         },
-        endsTurn: true
-      }
+        endsTurn: true,
+      },
     ];
   }
 
   private addCardsToDeck(cards: number[], repeat: number = 1): void {
-    Array(repeat).fill(null).forEach(() => {
-      this.state.deck.push(...cards);
-    })
+    Array(repeat)
+      .fill(null)
+      .forEach(() => {
+        this.state.round.deck.push(...cards);
+      });
   }
 
-  private shuffle(): void {
-    this.state.deck = this.state.deck
-      .map(card => ({ card, sort: Math.random() }))
+  public shuffleDeck(): void {
+    this.state.round.deck = this.state.round.deck
+      .map((card) => ({ card, sort: Math.random() }))
       .sort((a, b) => a.sort - b.sort)
       .map(({ card }) => card);
   }
 
   private dealCards(): void {
-    this.state.playerStates.forEach((playerState) => {
-      if (!playerState) throw new Error("Can't deal cards to this player")
+    this.state.round.playerStates.forEach((playerState) => {
+      if (!playerState) throw new Error("Can't deal cards to this player");
       playerState.closedCards = [];
 
-      for (let i = 0; i < this.handSize; i++)
+      for (let i = 0; i < this.settings.handSize; i++)
         playerState.closedCards.push(this.drawCardFromDeck());
-    })
+    });
   }
 
   private initOpenCard(): void {
-    this.state.discardPile.push(this.drawCardFromDeck());
+    this.state.round.discardPile.push(this.drawCardFromDeck());
   }
 
   private initPlayersOpenCards(): void {
-    this.state.playerStates.forEach(playerState => {
+    this.state.round.playerStates.forEach((playerState) => {
       playerState.openCards = [];
-      for (let i = 0; i < this.initialOpenCards; i++) {
-        playerState.openCards.push(this.drawCardFromClosedPlayerCards(playerState));
+      for (let i = 0; i < this.settings.initialOpenCards; i++) {
+        playerState.openCards.push(
+          this.drawCardFromClosedPlayerCards(playerState)
+        );
       }
     });
   }
 
   private drawCardFromDeck(): number {
-    const card = this.state.deck.pop();
-    if (card === undefined) throw new Error('Illegal action: No cards left in the deck');
+    const card = this.state.round.deck.pop();
+    if (card === undefined)
+      throw new Error("Illegal action: No cards left in the deck");
     return card;
   }
 
   private drawCardFromDiscardPile(): number {
-    const card = this.state.discardPile.pop();
-    if (card === undefined) throw new Error('Illegal action: No cards available on the discard pile');
+    const card = this.state.round.discardPile.pop();
+    if (card === undefined)
+      throw new Error("Illegal action: No cards available on the discard pile");
     return card;
   }
 
-  private drawCardFromClosedPlayerCards(playerState: ISkyjoPlayerState): number {
+  private drawCardFromClosedPlayerCards(
+    playerState: ISkyjoPlayerState
+  ): number {
     const card = playerState.closedCards.pop();
-    if (card === undefined) throw new Error("Illegal action: no cards available in closed cards");
+    if (card === undefined)
+      throw new Error("Illegal action: no cards available in closed cards");
     return card;
   }
 
@@ -277,10 +351,10 @@ export default class SkyjoGame extends Game<ISkyjoState> {
   }
 
   private getNextPlayerIndex(): number {
-    return (this.state.currentPlayerIndex + 1) % this.players.length;
+    return (this.state.round.currentPlayerIndex + 1) % this.players.length;
   }
 
   private getPlayersState(): ISkyjoPlayerState {
-    return this.state.playerStates[this.state.currentPlayerIndex];
+    return this.state.round.playerStates[this.state.round.currentPlayerIndex];
   }
 }

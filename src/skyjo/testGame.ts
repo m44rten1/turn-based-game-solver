@@ -1,18 +1,18 @@
 import IAction from "../generic/IAction";
 import IPlayer from "../generic/IPlayer";
 import ISkyjoState from "./ISkyjoState";
-import SkyjoGame from "./SkyjoGame";
+import SkyjoGame, { ActionType } from "./SkyjoGame";
 
 const randomIntFromInterval = (min: number, max: number) => {
   // min and max included
   return Math.floor(Math.random() * (max - min + 1) + min);
 };
 
-const players: IPlayer<ISkyjoState>[] = [];
+const players: IPlayer<ISkyjoState, ActionType>[] = [];
 
 const chooseRandomActionStrategy = (
   state: ISkyjoState,
-  allowedActions: IAction[]
+  allowedActions: ActionType[]
 ) => {
   return allowedActions[randomIntFromInterval(0, allowedActions.length - 1)];
 };
@@ -31,7 +31,7 @@ players.push(
 
 const test = () => {
   const game = new SkyjoGame(players);
-  game.start();
+  game.nextTurn();
   console.log(game.state);
 }
 

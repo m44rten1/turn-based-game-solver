@@ -20,6 +20,14 @@
       "program": "${workspaceFolder}/src/skyjo/SkyjoGeneticAlgorithm.ts",
       "preLaunchTask": "tsc: build - tsconfig.json",
       "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Neural Net",
+      "program": "${workspaceFolder}/src/skyjo/NeuralNet/neuralNet.ts",
+      "preLaunchTask": "tsc: build - tsconfig.json",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
     }
   ]
 }

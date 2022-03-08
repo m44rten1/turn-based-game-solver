@@ -3,26 +3,29 @@ import IPlayer from "./IPlayer";
 
 //TODO: only pass copies of state, never state!!
 
-export default abstract class Game<IState> {
+export default abstract class Game<IState, ActionType> {
   state: IState;
-  players: IPlayer<IState>[];
+  players: IPlayer<IState, ActionType>[];
 
-  constructor(state: IState, players: IPlayer<IState>[]) {
+  constructor(state: IState, players: IPlayer<IState, ActionType>[]) {
     this.state = state;
     this.players = players;
   }
 
-  public start() {
-    while (!this.isGameFinished()) {
+  public nextTurn(): boolean {
+    if (!this.isGameFinished()) {
       this.beforeTurn();
-      const player = this.setNextPlayer();
+      const player = this.nextPlayersTurn();
       this.executeTurn(player);
       this.afterTurn();
+      return true;
     }
+    return false;
   }
 
-  private executeTurn(player: IPlayer<IState>) {
-    const action = player.strategy(this.state, this.getAllowedActions());
+  private executeTurn(player: IPlayer<IState, ActionType>) {
+    const actionType = player.strategy(this.state, this.getAllowedActionTypes());
+    const action = this.getActionByType(actionType);
     action.updateState();
     if (!action.endsTurn) {
       this.executeTurn(player);
@@ -33,11 +36,15 @@ export default abstract class Game<IState> {
 
   abstract afterTurn(): void;
 
-  abstract setNextPlayer(): IPlayer<IState>;
+  abstract nextPlayersTurn(): IPlayer<IState, ActionType>;
 
   abstract isGameFinished(): boolean;
 
-  abstract getAllowedActions(): IAction[];
+  abstract getAllowedActionTypes(): ActionType[];
 
   abstract getWinnerIndex(): number;
+
+  abstract clone(): Game<IState, ActionType>;
+
+  abstract getActionByType(type: ActionType): IAction<ActionType>;
 }

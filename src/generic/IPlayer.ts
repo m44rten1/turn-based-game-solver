@@ -1,5 +1,3 @@
-import IAction from "./IAction";
-
-export default interface IPlayer <IState> {
-  strategy: (state: IState, allowedActions: IAction[]) => IAction;
+export default interface IPlayer <IState, ActionType> {
+  strategy: (state: IState, allowedActions: ActionType[]) => ActionType;
 }
