@@ -1,4 +1,4 @@
-import { addDataToFile, writeObjectToFile } from './../../util';
+import { addDataToFile, writeObjectToFile } from "./../../util";
 import { ActionType } from "./../SkyjoGame";
 import { mapStateToNNInput } from "./SkyjoStateMappings";
 import {
@@ -12,14 +12,20 @@ import SkyjoGame from "../SkyjoGame";
 
 export const generateTrainingData = (
   gameCount = 10,
-  playerCount = 2,
+  playerCount = 2
 ): {
-  input: { [key: string]: number };
-  output: { [key: string]: number };
-}[] => {
-  const trainingData: {
+  neuralNet: {
     input: { [key: string]: number };
     output: { [key: string]: number };
+  };
+  state: ISkyjoState;
+}[] => {
+  const trainingData: {
+    neuralNet: {
+      input: { [key: string]: number };
+      output: { [key: string]: number };
+    };
+    state: ISkyjoState;
   }[] = [];
 
   const players: IPlayer<ISkyjoState, ActionType>[] = Array(playerCount).fill({
@@ -58,7 +64,7 @@ export type DataPoint = {
 const dataPointForState = (
   state: ISkyjoState,
   shuffleCount: number
-): DataPoint => {
+): { neuralNet: DataPoint; state: ISkyjoState } => {
   const game = prepareGame(state);
   const actionTypes = getAllowedActionTypes(game.state);
 
@@ -84,12 +90,16 @@ const dataPointForState = (
 
   const output: { [key: string]: number } = {};
   actionTypes.forEach((type, index) => {
-    output[type] = normalizedActionScores[index] === 1 ? normalizedActionScores[index] : 0;
+    output[type] =
+      normalizedActionScores[index] === 1 ? normalizedActionScores[index] : 0;
   });
 
   return {
-    input: mapStateToNNInput(state),
-    output,
+    neuralNet: {
+      input: mapStateToNNInput(state),
+      output,
+    },
+    state,
     // debugState: JSON.parse(JSON.stringify(state)),
   };
 };
@@ -154,14 +164,14 @@ const prepareGame = (state: ISkyjoState): SkyjoGame => {
     strategy: randomStrategy,
   });
   const game = new SkyjoGame(players);
-game.setState(state);
+  game.setState(state);
   return game;
 };
 
-for(let i = 0; i < 2000; i++) {
+for (let i = 0; i < 10; i++) {
   const data = generateTrainingData(1);
-  addDataToFile("data.json", data);
+  addDataToFile("validation.json", data.map(x => x.neuralNet));
+  addDataToFile("ga-validation.json", data.map(x => x.state));
 }
-
 
 // writeObjectToFile("validation.json", data);

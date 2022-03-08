@@ -27,10 +27,6 @@ const net = new brain.NeuralNetwork(config);
 
 net.train(data);
 
-const output = net.run(data[20].input)
-
-const d = data[20];
-
 const validationData: DataPoint[] = readObjectFromFile("validation.json");
 
 const bestKeyInObject = (object: {[key: string]: number}) => {

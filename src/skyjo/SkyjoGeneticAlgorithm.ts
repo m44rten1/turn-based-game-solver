@@ -3,7 +3,7 @@ import ISkyjoState from "./ISkyjoState";
 import IAction from "../generic/IAction";
 import IPlayer from "../generic/IPlayer";
 
-type Chromosome = ActionType[];
+export type Chromosome = ActionType[];
 
 const initialPopulationSize = 200;
 

@@ -43,6 +43,14 @@
       "program": "${workspaceFolder}/src/skyjo/NeuralNet/cleanupData.ts",
       "preLaunchTask": "tsc: build - tsconfig.json",
       "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "GA Validation",
+      "program": "${workspaceFolder}/src/skyjo/NeuralNet/validation.ts",
+      "preLaunchTask": "tsc: build - tsconfig.json",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
     }
   ]
 }
